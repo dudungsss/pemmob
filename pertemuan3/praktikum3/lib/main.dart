@@ -1,121 +1,175 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+class Tugas {
+  String judul;
+  bool selesai;
+
+  Tugas(this.judul, {this.selesai = false});
+}
+
+class TugasModel extends ChangeNotifier {
+  final List<Tugas> _items = [];
+
+  List<Tugas> get items => List.unmodifiable(_items);
+  int get jumlahSelesai => _items.where((t) => t.selesai).length;
+
+  void tambah(String judul) {
+    _items.add(Tugas(judul));
+    notifyListeners();
+  }
+
+  void toggle(int index) {
+    _items[index].selesai = !_items[index].selesai;
+    notifyListeners();
+  }
+
+  void hapus(int index) {
+    _items.removeAt(index);
+    notifyListeners();
+  }
+
+  void hapusSelesai() {
+    _items.removeWhere((t) => t.selesai);
+    notifyListeners();
+  }
+}
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(create: (_) => TugasModel(), child: const MyApp()),
+  );
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      debugShowCheckedModeBanner: false,
+      title: 'Daftar Tugas',
+      theme: ThemeData(colorSchemeSeed: Colors.blue, useMaterial3: true),
+      home: const TugasPage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class TugasPage extends StatelessWidget {
+  const TugasPage({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  Widget build(BuildContext context) {
+    final model = context.watch<TugasModel>();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Tugas (${model.jumlahSelesai}/${model.items.length})'),
+        actions: [
+          // L2: tombol hapus yang selesai
+          IconButton(
+            icon: const Icon(Icons.delete_sweep),
+            tooltip: 'Hapus selesai',
+            onPressed: () => context.read<TugasModel>().hapusSelesai(),
+          ),
+        ],
+      ),
+
+      body: model.items.isEmpty
+          ? const Center(child: Text('Belum ada tugas'))
+          : ListView.builder(
+              itemCount: model.items.length,
+              itemBuilder: (context, i) {
+                final t = model.items[i];
+                return ListTile(
+                  leading: Checkbox(
+                    value: t.selesai,
+                    onChanged: (_) => context.read<TugasModel>().toggle(i),
+                  ),
+                  title: Text(
+                    t.judul,
+                    style: TextStyle(
+                      decoration: t.selesai ? TextDecoration.lineThrough : null,
+                    ),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete),
+                    onPressed: () => context.read<TugasModel>().hapus(i),
+                  ),
+                );
+              },
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const TambahPage()),
+          );
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class TambahPage extends StatefulWidget {
+  const TambahPage({super.key});
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  @override
+  State<TambahPage> createState() => _TambahPageState();
+}
+
+class _TambahPageState extends State<TambahPage> {
+
+  final _formKey = GlobalKey<FormState>();
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _simpan() {
+    if (!_formKey.currentState!.validate()) return;
+
+    final judul = _controller.text.trim();
+    context.read<TugasModel>().tambah(judul);
+
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.pop(context);
+    messenger.showSnackBar(const SnackBar(content: Text('Tugas ditambahkan')));
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+      appBar: AppBar(title: const Text('Tambah Tugas')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              TextFormField(
+                controller: _controller,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Judul tugas',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) {
+                  final t = v?.trim() ?? '';
+                  if (t.length < 3) return 'Minimal 3 karakter';
+                  return null;
+                },
+                onFieldSubmitted: (_) => _simpan(),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(onPressed: _simpan, child: const Text('Simpan')),
+            ],
+          ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }
