@@ -119,3 +119,6 @@ app.*.symbols
 !/dev/ci/**/Gemfile.lock
 
 .vscode
+../_flutter_toolchain_check/
+../modul pemmob.zip
+../modul pemmob/
